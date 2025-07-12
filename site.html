@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Terminal Interface</title>
+        <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .terminal-container {
+            width: 90%;
+            max-width: 800px;
+            height: 80vh;
+            background: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            background: #3a3a3a;
+            color: #e0e0e0;
+            padding: 12px 20px;
+            font-weight: normal;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #444;
+        }
+
+        .terminal-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .btn.close { background: #ff6b6b; }
+        .btn.minimize { background: #ffd93d; }
+        .btn.maximize { background: #6bcf7f; }
+
+        .terminal-body {
+            height: calc(100% - 45px);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .output-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #2d2d2d;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .output-line {
+            margin-bottom: 8px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .output-line.user {
+            color: #7c7c7c;
+        }
+
+        .output-line.server {
+            color: #e0e0e0;
+        }
+
+        .output-line.error {
+            color: #ff6b6b;
+        }
+
+        .output-line.info {
+            color: #79a8ff;
+        }
+
+        .input-area {
+            display: flex;
+            align-items: center;
+            padding: 15px 20px;
+            background: #3a3a3a;
+            border-top: 1px solid #444;
+        }
+
+        .prompt {
+            color: #b0b0b0;
+            margin-right: 10px;
+            font-weight: normal;
+        }
+
+        .input-field {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #e0e0e0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            outline: none;
+            padding: 5px;
+        }
+
+        .input-field::placeholder {
+            color: #888;
+        }
+
+        .send-button {
+            background: #4a4a4a;
+            color: #e0e0e0;
+            border: 1px solid #555;
+            padding: 8px 16px;
+            margin-left: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-weight: normal;
+            transition: all 0.2s ease;
+        }
+
+        .send-button:hover {
+            background: #555;
+            border-color: #666;
+        }
+
+        .send-button:active {
+            background: #3a3a3a;
+        }
+
+        .loading {
+            display: none;
+            color: #79a8ff;
+            font-style: italic;
+        }
+
+        .cursor {
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .welcome-message {
+            color: #b0b0b0;
+            font-size: 14px;
+            margin-bottom: 20px;
+            text-align: center;
+            padding: 20px;
+            border-bottom: 1px solid #444;
+        }
+
+        /* Scrollbar styling */
+        .output-area::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .output-area::-webkit-scrollbar-track {
+            background: #2d2d2d;
+        }
+
+        .output-area::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 3px;
+        }
+
+        .output-area::-webkit-scrollbar-thumb:hover {
+            background: #666;
+        }
+    </style>
+  </head>
+  <body>
+        <div class="terminal-container">
+        <div class="terminal-header">
+            <span>Terminal v1.0 - Python Server Interface</span>
+            <div class="terminal-buttons">
+                <div class="btn close"></div>
+                <div class="btn minimize"></div>
+                <div class="btn maximize"></div>
+            </div>
+        </div>
+        
+        <div class="terminal-body">
+            <div class="output-area" id="output">
+                <div class="welcome-message">
+                    Welcome to Python Server Terminal Interface<br>
+                    Type your commands below and press Enter or click Send
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <span class="prompt">$</span>
+                <input type="text" class="input-field" id="commandInput" placeholder="Enter your command here..." autofocus>
+                <button class="send-button" id="sendButton">Send</button>
+            </div>
+            
+            <div class="loading" id="loading">Processing command...</div>
+        </div>
+    </div>
+
+        <script>
+        const output = document.getElementById('output');
+        const commandInput = document.getElementById('commandInput');
+        const sendButton = document.getElementById('sendButton');
+        const loading = document.getElementById('loading');
+
+        // Configuration - Update these with your Python server details
+        const SERVER_URL = 'http://localhost:8000/execute'; // Change this to your Python server endpoint
+        
+        function addOutputLine(text, type = 'server') {
+            const line = document.createElement('div');
+            line.className = `output-line ${type}`;
+            line.textContent = text;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function showLoading(show) {
+            loading.style.display = show ? 'block' : 'none';
+        }
+
+        async function sendCommand() {
+            const command = commandInput.value.trim();
+            if (!command) return;
+
+            // Display user input
+            addOutputLine(`$ ${command}`, 'user');
+            commandInput.value = '';
+            
+            showLoading(true);
+            
+            try {
+                const response = await fetch(SERVER_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ command: command })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                // Display server response
+                if (result.output) {
+                    addOutputLine(result.output, 'server');
+                }
+                
+                if (result.error) {
+                    addOutputLine(`Error: ${result.error}`, 'error');
+                }
+                
+            } catch (error) {
+                addOutputLine(`Connection Error: ${error.message}`, 'error');
+                addOutputLine('Make sure your Python server is running and accessible', 'info');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Event listeners
+        sendButton.addEventListener('click', sendCommand);
+        
+        commandInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendCommand();
+            }
+        });
+
+        // Focus on input when page loads
+        window.addEventListener('load', function() {
+            commandInput.focus();
+        });
+
+        // Keep focus on input
+        document.addEventListener('click', function(e) {
+            if (e.target !== commandInput) {
+                commandInput.focus();
+            }
+        });
+
+        // Add initial connection test
+        window.addEventListener('load', function() {
+            addOutputLine('Terminal initialized. Ready for commands.', 'info');
+            addOutputLine('Server endpoint: ' + SERVER_URL, 'info');
+        });
+    </script>
+  </body>
+</html>
